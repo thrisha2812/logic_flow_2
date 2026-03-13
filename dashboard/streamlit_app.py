@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import sys
+from demo.broken_code import generate_broken_code
 
 # Ensure the root directory is in the path for tool imports
 sys.path.append(os.getcwd())
@@ -10,13 +11,47 @@ from tools.docker_test_tool import run_isolated_test
 from config import Config
 from tools.github_tool import create_github_issue, get_github_issues, post_github_comment
 
+def report_progress(issue_id, message):
+    """The one-stop function for the Agent to talk to the world"""
+    add_log(message)  # Updates your Dashboard
+    post_github_comment(issue_id, f"🤖 [LogicFlow]: {message}") # Updates GitHub
+
+# 1. Page Configuration
 st.set_page_config(page_title="LogicFlow AI", layout="wide")
 
-# --- Sidebar: System Status ---
-st.sidebar.title("Infrastructure Status")
-st.sidebar.subheader("Open Issues")
+# 2. Initialize Session State for Infrastructure Logs
+if "logs" not in st.session_state:
+    st.session_state.logs = "System Initialized: LogicFlow Infrastructure Online."
 
-# Fetch issues once at the start to use in both Sidebar and Main UI
+def add_log(message):
+    """Helper to update the live terminal log"""
+    st.session_state.logs += f"\n[INFRA]: {message}"
+if "indexed" not in st.session_state:
+    # This runs only once when the app starts
+    with st.spinner("Initial indexing of excavation site..."):
+        ingest_code()
+        st.session_state.indexed = True
+        # Note: We can't update log_area yet because it hasn't been created
+        # So we just add to the session state string
+        add_log("Codebase indexed and ready for retrieval.")
+# 3. Sidebar: Infrastructure Health & Issues
+st.sidebar.title("Infrastructure Status")
+
+# Sidebar Health Check
+with st.sidebar.expander("System Health", expanded=True):
+    if Config.GITHUB_TOKEN:
+        st.write("GitHub Auth: Verified")
+    else:
+        st.error("GitHub Auth: Missing")
+    st.write(f"Repo: {Config.GITHUB_REPO}")
+
+st.sidebar.markdown("---")
+if st.sidebar.button("Reset Excavation Site (New Bug)"):
+    bug_type = generate_broken_code()
+    add_log(f"Injected new artifact: {bug_type}")
+    st.sidebar.success(f"Injected: {bug_type}")
+    st.rerun() # Refresh the UI to show the new code in Col1
+st.sidebar.subheader("Open Issues")
 issues = get_github_issues()
 
 if isinstance(issues, list) and len(issues) > 0:
@@ -35,20 +70,20 @@ if st.sidebar.button("Check Docker Lab"):
     else:
         st.sidebar.error("Docker: OFFLINE")
 
-if st.sidebar.button("Re-Index Codebase"):
-    with st.spinner("Indexing..."):
-        ingest_code()
-        st.sidebar.success("FAISS Index Updated")
+if st.sidebar.button("Clear Logs"):
+    st.session_state.logs = "System Initialized: LogicFlow Infrastructure Online."
+    st.rerun()
 
-# --- Main UI ---
+# 4. Main UI Header
 st.title("LogicFlow: Autonomous Bug Repair")
 st.markdown("---")
 
 col1, col2 = st.columns([1, 1])
 
+# Column 1: Source Code View
 with col1:
     st.header("Target Repository")
-    st.info(f"Working on: {Config.GITHUB_REPO}")
+    st.info(f"Active Site: {Config.GITHUB_REPO}")
     
     try:
         with open("demo/broken_code.py", "r") as f:
@@ -56,55 +91,62 @@ with col1:
         st.subheader("Source Code (demo/broken_code.py)")
         st.code(code, language="python")
     except FileNotFoundError:
-        st.warning("demo/broken_code.py not found")
+        st.warning("Source file demo/broken_code.py not found.")
 
+# Column 2: Infrastructure & Agent Activity Logs
 with col2:
     st.header("Agent Activity")
-    log_placeholder = st.empty()
-    log_placeholder.text_area("Live Logs", value="Waiting for agent to start...", height=300)
+    
+    # Live scrolling log area
+    log_area = st.empty()
+    log_area.code(st.session_state.logs, language="bash")
 
-    # --- THE REPAIR BUTTON ---
-    # Placed inside Column 2 so it is clearly part of the Agent's action area
-    action_log = st.container()
+    st.markdown("---")
+    
+    # Action area for triggering infrastructure tasks
+    action_container = st.container()
     
     if st.button("Start AI Repair"):
-        with action_log:
-            st.write("Initializing repair process...")
+        with action_container:
+            add_log("Initializing repair process...")
+            log_area.code(st.session_state.logs, language="bash")
             
             # 1. Create a new issue
             new_id = create_github_issue(
                 "Detected Bug in Source", 
-                "The agent has identified a potential failure in demo/broken_code.py"
+                "Infrastructure trigger: Identifying failure in demo/broken_code.py"
             )
             
-            if isinstance(new_id, int):
-                st.write(f"Created GitHub Issue Number: {new_id}")
+            if new_id and str(new_id).isdigit():
+                add_log(f"GitHub Issue #{new_id} created successfully.")
+                log_area.code(st.session_state.logs, language="bash")
                 
                 # 2. Post the comment
-                st.write("Communicating with GitHub API...")
+                add_log("Posting status update to GitHub...")
                 comment_result = post_github_comment(
                     new_id, 
-                    "LogicFlow Agent has started work on this issue."
+                    "LogicFlow Agent is analyzing the codebase via FAISS."
                 )
                 
                 if "success" in str(comment_result).lower():
-                    st.success(f"Status updated on Issue {new_id}")
+                    add_log("GitHub synchronization complete.")
+                    st.success(f"Pipeline executed for Issue {new_id}")
                 else:
-                    st.error("Failed to post status update to GitHub")
+                    add_log("Warning: GitHub comment failed.")
                 
-                # Integration Hook for Dimply:
-                # result = agent.run_logic(new_id)
+                log_area.code(st.session_state.logs, language="bash")
             else:
-                st.error("Could not initialize GitHub Issue. Check your Token permissions.")
+                add_log("Error: Could not create GitHub issue.")
+                st.error("Infrastructure failure. Check logs.")
 
-# --- Bottom Section: Issue List ---
+# 5. Footer / Repository Overview
 st.markdown("---")
 st.header("Active Repository Issues")
 if isinstance(issues, list) and len(issues) > 0:
     for issue in issues:
         st.text(f"Issue #{issue['number']}: {issue['title']}")
 else:
-    st.info("No active issues detected. Ensure GITHUB_REPO is correct in config.py.")
+    st.info("No active issues detected in the remote repository.")
 
 st.markdown("---")
 st.caption("Built by Dimply and Thrisha | Sahyadri College of Engineering")
