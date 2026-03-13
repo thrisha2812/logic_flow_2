@@ -1,13 +1,22 @@
 import streamlit as st
 import os
+import sys
+sys.path.append(os.getcwd())
 from tools.faiss_tool import ingest_code
 from tools.docker_test_tool import run_isolated_test
 from config import Config
+from tools.github_tool import get_github_issues
+
 
 st.set_page_config(page_title="LogicFlow AI", page_icon="", layout="wide")
 
 # --- Sidebar: System Status ---
 st.sidebar.title(" Infrastructure Status")
+st.sidebar.subheader("Open Issues")
+issues_text = get_github_issues() # Use the new function directly
+st.sidebar.write(issues_text)
+
+st.sidebar.markdown("---")
 if st.sidebar.button("Check Docker Lab"):
     success, result = run_isolated_test("print('Docker Online')")
     if success:
