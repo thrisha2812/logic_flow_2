@@ -5,7 +5,7 @@ from demo.broken_code import generate_broken_code
 
 # Ensure the root directory is in the path for tool imports
 sys.path.append(os.getcwd())
-
+from tools.demo_utils import generate_broken_code
 from tools.faiss_tool import ingest_code
 from tools.docker_test_tool import run_isolated_test
 from config import Config
