@@ -1,37 +1,48 @@
-import subprocess
+import docker
+import logging
+import tempfile
 import os
 
-def run_isolated_test(code_to_test):
-    """
-    Takes a string of Python code, saves it to a file, 
-    and runs it inside a Docker container.
-    """
-    # 1. Ensure the demo folder exists and save the code
-    os.makedirs("demo", exist_ok=True)
-    test_file_path = "demo/test_run.py"
-    
-    with open(test_file_path, "w") as f:
-        f.write(code_to_test)
-    
-    print(f"🚀 Running test in Docker...")
+logger = logging.getLogger("LogicFlow.Docker")
 
-    # 2. Docker Command:
-    # -v mounts your local 'demo' folder to '/app' in the container
-    # It runs the file and then deletes the container (--rm)
-    cmd = [
-        "docker", "run", "--rm",
-        "-v", f"{os.getcwd()}/demo:/app",
-        "python:3.10-slim", "python", "/app/test_run.py"
-    ]
-
+def run_isolated_test(code_snippet):
+    client = docker.from_env()
+    container = None
     try:
-        # Run the command and capture the output
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        logger.info("Connecting to Docker Engine...")
         
-        if result.returncode == 0:
-            return True, f"Success: {result.stdout}"
-        else:
-            return False, f"Error: {result.stderr}"
-            
+        # 1. Create a truly isolated environment
+        # We use a simple 'cat' command to keep the container alive 
+        # while we upload the script
+        container = client.containers.run(
+            image="python:3.12-slim",
+            command="sleep 30", # Container stays alive for 30s
+            detach=True,
+            remove=True,
+            network_disabled=True,
+            mem_limit="128m"
+        )
+
+        logger.info("Executing artifact in sandbox...")
+        
+        # 2. Run the code directly via a 'Here Doc' to avoid Windows quote issues
+        exec_log = container.exec_run(
+            cmd=['python', '-c', code_snippet],
+            workdir="/"
+        )
+
+        exit_code = exec_log.exit_code
+        logs = exec_log.output.decode("utf-8")
+        
+        # 3. Cleanup
+        container.stop()
+        
+        logger.info(f"Sandbox verification complete. Exit Code: {exit_code}")
+        return (exit_code == 0), logs
+
     except Exception as e:
-        return False, f"Docker Execution Failed: {str(e)}"
+        logger.error(f"Docker Sandbox Failure: {e}")
+        if container:
+            try: container.kill()
+            except: pass
+        return False, f"Sandbox Error: {e}"

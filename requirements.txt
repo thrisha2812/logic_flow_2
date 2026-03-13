@@ -1,7 +1,24 @@
-langchain
-langchain-google-genai
-langchain-community
-faiss-cpu
-python-dotenv
-pytest
-google-generativeai
+# --- Core AI & SDK ---
+# The latest modern SDK as of March 2026
+google-genai==1.67.0
+google-auth>=2.47.0
+
+# --- Vector Database & RAG ---
+# Using the CPU version for maximum compatibility during demos
+faiss-cpu>=1.9.0
+numpy>=1.26.0
+sentence-transformers>=3.0.0
+
+# --- Dashboard & UI ---
+streamlit>=1.42.0
+watchdog>=4.0.0
+
+# --- Infrastructure & Utilities ---
+# For GitHub API interactions
+PyGithub>=2.5.0
+# For isolated code execution
+docker>=7.1.0
+# For managing environment variables (.env)
+python-dotenv>=1.0.1
+# For handling API requests/failovers
+httpx>=0.28.0
