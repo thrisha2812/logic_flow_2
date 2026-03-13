@@ -7,6 +7,9 @@ def main():
     print("--- LogicFlow Infrastructure Check ---")
     
     # 1. Check GitHub
+    if not Config.GITHUB_TOKEN:
+        print("❌ Error: GITHUB_TOKEN not found in Config. Check your .env file.")
+        return
     try:
         tools = get_github_tools()
         print(f"✅ GitHub Tools Loaded: {len(tools)} tools available")
