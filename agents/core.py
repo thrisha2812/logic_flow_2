@@ -16,25 +16,72 @@ class DigitalArcheologist:
     def __init__(self):
         try:
             self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+            # Primary for speed, Pro for deep review
             self.available_models = ["gemini-3-flash-preview", "gemini-3.1-pro-preview"]
             logger.info("LogicFlow Pipeline Architect active.")
         except Exception as e:
             logger.error(f"Initialization failure: {e}")
 
+    def review_restoration(self, code, explanation):
+        """
+        Acts as a Senior Lead Developer. 
+        Includes a failover to Flash if the Pro quota is reached.
+        """
+        review_prompt = f"""
+        Review this proposed Python fix for security, efficiency, and PEP8 standards.
+        PROPOSED CODE:
+        {code}
+
+        AI EXPLANATION:
+        {explanation}
+
+        Provide a critical review. If there are no issues, start with 'LGTM' (Looks Good To Me).
+        """
+        
+        try:
+            logger.info("Attempting Senior Peer Review with Gemini 3.1 Pro...")
+            response = self.client.models.generate_content(
+                model="gemini-3.1-pro-preview",
+                contents=review_prompt
+            )
+            return response.text if response.text else "Review unavailable."
+            
+        except Exception as e:
+            # FALLBACK: If Pro is busy or quota is hit, use Flash for the review
+            if "429" in str(e) or "quota" in str(e).lower():
+                logger.warning("Pro Quota reached. Falling back to Flash for Peer Review.")
+                try:
+                    response = self.client.models.generate_content(
+                        model="gemini-3-flash-preview",
+                        contents=review_prompt
+                    )
+                    return f"(Flash-Review): {response.text}"
+                except:
+                    return "Review system temporarily offline (Quota Limit)."
+            return f"Reviewer failed: {e}"
+
     def excavate_and_repair(self, issue_id, broken_code):
+        """
+        Complete Pipeline: Context -> Restoration -> Stabilization -> Review -> PR.
+        """
         # 1. EXCAVATION
+        logger.info(f"Excavating context for Issue #{issue_id}...")
         context_snippets = retrieve_context(broken_code[:100])
         context_str = "\n---\n".join([str(snippet) for snippet in context_snippets])
 
-        # 2. RESTORATION (Prompting for JSON)
+        # 2. RESTORATION PROMPT
         prompt = f"""
         Repair this Python artifact. Return STRICT JSON with keys 'code' and 'explanation'.
-        CONTEXT: {context_str}
-        BROKEN ARTIFACT: {broken_code}
+        CONTEXT:
+        {context_str}
+
+        BROKEN ARTIFACT:
+        {broken_code}
         """
 
         for model_name in self.available_models:
             try:
+                logger.info(f"Querying Oracle: {model_name}...")
                 response = self.client.models.generate_content(
                     model=model_name,
                     contents=prompt,
@@ -46,22 +93,39 @@ class DigitalArcheologist:
                     restored_code = ai_data.get('code', '')
                     explanation = ai_data.get('explanation', 'No explanation provided.')
                     
-                    # 3. STABILIZATION
+                    # 3. STABILIZATION (Docker Check)
+                    logger.info(f"Verifying restoration with {model_name} in Docker sandbox...")
                     success, test_log = run_isolated_test(restored_code)
                     
                     pr_url = None
+                    review_comments = "No review performed."
+                    
                     if success:
+                        # 4. MULTI-AGENT REVIEW PHASE
+                        review_comments = self.review_restoration(restored_code, explanation)
+                        
+                        full_pr_body = (
+                            f"### 🤖 LogicFlow Restoration Summary\n"
+                            f"{explanation}\n\n"
+                            f"### 🛡️ Senior Peer Review\n"
+                            f"{review_comments}\n\n"
+                            f"### 🧪 Validation Status\n"
+                            f"- Docker Sandbox: PASS"
+                        )
+
+                        # 5. PR CREATION
                         pr_url = create_pull_request(
                             issue_id=issue_id,
                             fixed_code=restored_code,
                             file_path=Config.DEMO_CODE_PATH,
-                            explanation=explanation
+                            explanation=full_pr_body
                         )
 
                     return {
                         "success": success,
                         "restored_code": restored_code,
                         "explanation": explanation,
+                        "review": review_comments,
                         "test_log": test_log,
                         "pr_url": pr_url,
                         "model_used": model_name
@@ -71,3 +135,9 @@ class DigitalArcheologist:
                 continue
 
         return {"success": False, "test_log": "All restoration attempts failed."}
+
+# --- Initialization for Streamlit ---
+if 'archeologist' not in st.session_state:
+    st.session_state.archeologist = DigitalArcheologist()
+
+archeologist = st.session_state.archeologist

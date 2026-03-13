@@ -63,13 +63,19 @@ with col2:
           
                 st.success(f" Repair Successful! PR: {result.get('pr_url')}")
                 
-                with st.expander(" View LogicFlow's Reasoning", expanded=True):
-                    st.write(f"**Model:** {result.get('model_used')}")
-                    st.info(result.get('explanation'))
-                    st.subheader("Docker Logs")
+                with st.expander("🔍 View LogicFlow's Reasoning & Review", expanded=True):
+                    st.subheader("AI Explanation")
+                    st.info(result.get('explanation', "No explanation provided."))
+                    
+                    st.subheader("🛡️ Senior Peer Review")
+                    # We use .get('review') which we added to the core.py return dictionary
+                    st.success(result.get('review', "Review not available."))
+                    
+                    st.subheader("Docker Sandbox Verification")
                     st.code(result.get('test_log'), language="bash")
-                
-                post_github_comment(new_id, f"Fixed Code:\n```python\n{result['restored_code']}\n```")
+                    
+                    if result.get('pr_url'):
+                        st.link_button("View Pull Request on GitHub", result['pr_url'])
             else:
                 st.error("Stabilization failed.")
                 add_log(f"Error: {result.get('test_log')}")
