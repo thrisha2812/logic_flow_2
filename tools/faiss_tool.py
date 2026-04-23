@@ -3,8 +3,7 @@ import faiss
 import numpy as np
 import pickle
 import logging
-from google import genai
-from google.genai import types
+import requests
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
 from config import Config
@@ -12,32 +11,28 @@ from config import Config
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("LogicFlow.Memory")
 
-# Initialize the Stable Client
-client = genai.Client(
-    api_key=os.getenv("GOOGLE_API_KEY"),
-   
-)
+# Removed Stable Client Initialization
 
 class LogicFlowEmbedder:
-    """Custom embedder to ensure V1 Stable consistency with the 2026 registry."""
-    def __init__(self, model="gemini-embedding-001"):
+    """Custom embedder to use local Ollama models."""
+    def __init__(self, model=Config.OLLAMA_EMBED_MODEL):
         self.model = model
+        self.base_url = Config.OLLAMA_BASE_URL
+
+    def _get_embedding(self, text):
+        payload = {
+            "model": self.model,
+            "prompt": text
+        }
+        response = requests.post(f"{self.base_url}/api/embeddings", json=payload)
+        response.raise_for_status()
+        return response.json()["embedding"]
 
     def embed_documents(self, texts):
-        response = client.models.embed_content(
-            model=self.model,
-            contents=texts,
-            config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
-        )
-        return [np.array(emb.values, dtype="float32") for emb in response.embeddings]
+        return [np.array(self._get_embedding(t), dtype="float32") for t in texts]
 
     def embed_query(self, text):
-        response = client.models.embed_content(
-            model=self.model,
-            contents=text,
-            config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY")
-        )
-        return np.array(response.embeddings[0].values, dtype="float32")
+        return np.array(self._get_embedding(text), dtype="float32")
 
 # --- ADD THESE FUNCTIONS TO THE FILE ---
 
@@ -57,12 +52,12 @@ def ingest_code():
     embedder = LogicFlowEmbedder()
     
     try:
-        logger.info("Generating stable embeddings with gemini-embedding-001...")
+        logger.info(f"Generating stable embeddings with {Config.OLLAMA_EMBED_MODEL}...")
         embeddings = embedder.embed_documents(texts)
         vectors = np.vstack(embeddings)
         
         # --- THE MISSING PART: Define 'index' ---
-        dim = vectors.shape[1] # Usually 3072 for gemini-embedding-001
+        dim = vectors.shape[1] # Usually 768 for nomic-embed-text
         index = faiss.IndexFlatIP(dim) # <--- 'index' is defined here
         faiss.normalize_L2(vectors)
         index.add(vectors)

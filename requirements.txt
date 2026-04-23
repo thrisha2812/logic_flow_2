@@ -1,7 +1,6 @@
 # --- Core AI & SDK ---
-# The latest modern SDK as of March 2026
-google-genai==1.67.0
-google-auth>=2.47.0
+# Using local models via Ollama API
+requests>=2.32.5
 
 # --- Vector Database & RAG ---
 # Using the CPU version for maximum compatibility during demos
@@ -20,5 +19,5 @@ PyGithub>=2.5.0
 docker>=7.1.0
 # For managing environment variables (.env)
 python-dotenv>=1.0.1
-# For handling API requests/failovers
-httpx>=0.28.0
+# For handling API requests
+requests>=2.32.5

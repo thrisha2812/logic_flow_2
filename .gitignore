@@ -3,3 +3,4 @@ __pycache__/
 vectorstore/faiss_index/
 demo/test_run.py
 demo/temp_fix.py
+venv/

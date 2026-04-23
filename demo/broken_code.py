@@ -1,4 +1,3 @@
 def run():
-    items = [1]
-    return items[5]
+    return 10 / 0
 run()
