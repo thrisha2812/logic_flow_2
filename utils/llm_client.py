@@ -16,7 +16,7 @@ class LocalLLMClient:
         model: str = "codellama",
         temperature: float = 0.1,
         max_tokens: int = 4096,
-        timeout: int = 120
+        timeout: int = 300
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model

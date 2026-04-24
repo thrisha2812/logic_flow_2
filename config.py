@@ -8,50 +8,34 @@ load_dotenv()
 
 
 class Config:
-    # ==================== LLM Configuration ====================
-    # Choose: "ollama" or "lmstudio"
     LLM_BACKEND = os.getenv("LLM_BACKEND", "ollama")
-    
-    # Model name (must match what you downloaded)
-    # Recommended for code: "codellama", "deepseek-coder:6.7b", "qwen2.5-coder:7b"
-    # Recommended for general: "llama3", "mistral"
     LLM_MODEL = os.getenv("LLM_MODEL", "codellama:7b-instruct-q2_K")
-    
-    # LLM Parameters
     LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.1"))
-    LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4096"))
-    
-    # Ollama settings
+    LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1024"))
+
     OLLAMA_BASE_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
     OLLAMA_MODEL = os.getenv("LLM_MODEL", "codellama:7b-instruct-q2_K")
     OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
-    
-    # LM Studio settings
+    OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+
     LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://localhost:1234/v1")
-    
-    # ==================== LLM APIs Removed ====================
-    # (Gemini dependency has been cleaned up)
-    
-    # ==================== Tool Configuration ====================
-    # Docker settings
+
     DOCKER_ENABLED = os.getenv("DOCKER_ENABLED", "true").lower() == "true"
     DOCKER_TIMEOUT = int(os.getenv("DOCKER_TIMEOUT", "30"))
-    
-    # GitHub settings (if needed)
+
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
-    GITHUB_REPO=os.getenv("GITHUB_REPO","")
-    
-    # ==================== Vector Store ====================
+    GITHUB_REPO = os.getenv("GITHUB_REPO", "")
+    DEMO_CODE_PATH = os.getenv("DEMO_CODE_PATH", "demo/broken_code.py")
+
     FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", "vectorstore/faiss_index")
     VECTORSTORE_PATH = os.getenv("VECTORSTORE_PATH", "vectorstore/faiss_index")
-    
-    # ==================== Logging ====================
+    RETRIEVE_TOP_K = int(os.getenv("RETRIEVE_TOP_K", "1"))
+    MAX_CONTEXT_CHARS = int(os.getenv("MAX_CONTEXT_CHARS", "900"))
+    MAX_BROKEN_CODE_CHARS = int(os.getenv("MAX_BROKEN_CODE_CHARS", "1600"))
+
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    
-    # ==================== Agent Settings ====================
-    MAX_CORRECTION_ITERATIONS = int(os.getenv("MAX_CORRECTION_ITERATIONS", "3"))
+    MAX_CORRECTION_ITERATIONS = int(os.getenv("MAX_CORRECTION_ITERATIONS", "2"))
     VERBOSITY = os.getenv("VERBOSITY", "concise")
 
 
-# Create singleton instance
 config = Config()
